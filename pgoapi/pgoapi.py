@@ -140,10 +140,10 @@ class PGoApi:
 
         # Sanity checking
         self.FARM_ITEMS_ENABLED = self.FARM_ITEMS_ENABLED and self.experimental and self.should_catch_pokemon # Experimental, and we needn't do this if we're farming anyway
-        if ( self.FARM_ITEMS_ENABLED         
-           and self.FARM_IGNORE_POKEBALL_COUNT  
-           and self.FARM_IGNORE_GREATBALL_COUNT 
-           and self.FARM_IGNORE_ULTRABALL_COUNT 
+        if ( self.FARM_ITEMS_ENABLED
+           and self.FARM_IGNORE_POKEBALL_COUNT
+           and self.FARM_IGNORE_GREATBALL_COUNT
+           and self.FARM_IGNORE_ULTRABALL_COUNT
            and self.FARM_IGNORE_MASTERBALL_COUNT ):
           self.FARM_ITEMS_ENABLED = False
           self.log.warn("FARM_ITEMS has been disabled due to all Pokeball counts being ignored.")
@@ -265,6 +265,7 @@ class PGoApi:
             with open("data_dumps/%s.json" % self.config['username'], "w") as f:
                 res['responses']['lat'] = self._posf[0]
                 res['responses']['lng'] = self._posf[1]
+                res['responses']['hourly_exp'] = self.hourly_exp(self.player_stats.experience)
                 f.write(json.dumps(res['responses'], indent=2))
 
             self.inventory = Player_Inventory(res['responses']['GET_INVENTORY']['inventory_delta']['inventory_items'])
@@ -278,7 +279,7 @@ class PGoApi:
             self.log.debug(self.cleanup_inventory(self.inventory.inventory_items))
             self.log.info("Player Inventory after cleanup: %s", self.inventory)
             if self.LIST_POKEMON_BEFORE_CLEANUP:
-                self.log.info(get_inventory_data(res, self.pokemon_names))
+                self.log.info(get_inventory_data(res, self.pokemon_names, self.game_master, self.player_stats.level))
             self.incubate_eggs()
             self.attempt_evolve(self.inventory.inventory_items)
             self.cleanup_pokemon(self.inventory.inventory_items)
@@ -585,7 +586,9 @@ class PGoApi:
             if "pokemon_data" in inventory_item['inventory_item_data']:
                 # is a pokemon:
                 pokemon_data = inventory_item['inventory_item_data']['pokemon_data']
-                pokemon = Pokemon(pokemon_data, self.pokemon_names, self.game_master.get(pokemon_data.get('pokemon_id', 0), PokemonData()))
+                pokemon = Pokemon(pokemon_data, self.pokemon_names,
+                                  self.game_master.get(pokemon_data.get('pokemon_id', 0), PokemonData()),
+                                  self.player_stats.level)
 
                 if not pokemon.is_egg:
                     caught_pokemon[pokemon.pokemon_id].append(pokemon)
@@ -675,7 +678,8 @@ class PGoApi:
             sleep(3)
             if status == 1:
                 evolved_pokemon = Pokemon(evo_res.get('evolved_pokemon_data', {}), self.pokemon_names,
-                                          self.game_master.get(str(pokemon.pokemon_id), PokemonData()))
+                                          self.game_master.get(str(pokemon.pokemon_id), PokemonData()),
+                                          self.player_stats.level)
                 # I don' think we need additional stats for evolved pokemon. Since we do not do anything with it.
                 # evolved_pokemon.pokemon_additional_data = self.game_master.get(pokemon.pokemon_id, PokemonData())
                 self.log.info("Evolved to %s", evolved_pokemon)
@@ -886,17 +890,6 @@ class PGoApi:
 
         response = self.call()
 
-        if not response:
-            self.log.info('Login failed!')
-        if os.path.isfile("auth_cache") and cached:
-            response = pickle.load(open("auth_cache"))
-        fname = "auth_cache_%s" % username
-        if os.path.isfile(fname) and cached:
-            response = pickle.load(open(fname))
-        else:
-            response = self.heartbeat()
-            f = open(fname, "w")
-            pickle.dump(response, f)
         if not response:
             self.log.info('Login failed!')
             return False
