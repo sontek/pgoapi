@@ -16,7 +16,7 @@ def getLocation(search):
 
 
 # http://python-gmaps.readthedocs.io/en/latest/gmaps.html#module-gmaps.directions
-def get_route(start, end, use_google=False, GMAPS_API_KEY="", walk_to_all_forts=False, waypoints=[]):
+def get_route(start, end, use_google=False, GMAPS_API_KEY="", walk_to_all_forts=False, waypoints=[], step_size=200):
     origin = (start[0], start[1])
     destination = (end[0], end[1])
     if use_google:
@@ -41,13 +41,20 @@ def get_route(start, end, use_google=False, GMAPS_API_KEY="", walk_to_all_forts=
         }
     else:
         total_distance = distance_in_meters(start, end)
+        step_increments = get_increments(start, end, step_size)
+        final_steps = []
+        previous_step = step_increments[0]
+        for step in step_increments[1:]:
+            final_steps.append({
+                'lat': step[0],
+                'long': step[1],
+                'distance': distance_in_meters(previous_step, step)
+            })
+            previous_step = step
+
         return {
             'total_distance': total_distance,
-            'steps': {
-                'lat': end[0],
-                'long': end[1],
-                'distance': total_distance,
-            }
+            'steps': final_steps
         }
 
 
