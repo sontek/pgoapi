@@ -27,9 +27,28 @@ def get_route(start, end, use_google=False, GMAPS_API_KEY="", walk_to_all_forts=
         else:
             d = directions_service.directions(origin, destination, mode="walking", units="metric")
         steps = d[0]['legs'][0]['steps']
-        return [(step['end_location']["lat"], step['end_location']["lng"]) for step in steps]
+        final_steps = [
+            {
+                'lat': step['end_location']['lat'],
+                'long': step['end_location']['lng'],
+                'distance': step['distance']['value'],
+            } for step in steps
+        ]
+
+        return {
+            'total_distance': d[0]['legs'][0]['distance']['value'],
+            'steps': final_steps
+        }
     else:
-        return [destination]
+        total_distance = distance_in_meters(start, end)
+        return {
+            'total_distance': total_distance,
+            'steps': {
+                'lat': end[0],
+                'long': end[1],
+                'distance': total_distance,
+            }
+        }
 
 
 # step_size corresponds to how many meters between each step we want
